@@ -1,0 +1,6 @@
+# Boolean14. Проверить, ровно одно из A, B, C положительное.
+a = int(input())
+b = int(input())
+c = int(input())
+count = (a > 0) + (b > 0) + (c > 0)
+print(count == 1)
