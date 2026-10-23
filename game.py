@@ -71,8 +71,5 @@ case "3":
 stamina = stamina + 2
 print("Вы легли на пол и полностью расслабились.")
 case "4":
-stamina = stamina - 2
-print("Вы осторожно идёте назад. Пол скрипит под ногами.")
-
-case _:
+stamina = stamina 
 print("Такого действия нет.")
