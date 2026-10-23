@@ -1,6 +1,6 @@
 # ================================================
 # ИГРА «ПОДЗЕМЕЛЬЕ: ТИХИЙ КОЛОДЕЦ»
-# Автор: Алексей Семерич
+# Автор: Руфат Мурзагалиев
 # Дата: 21.09.2026
 #
 # Пункт 4 — «прислушаться»: герой замирает
@@ -30,7 +30,7 @@ print("Как вас назвать?")
 hero_name = input()
 
 print(f"Добро пожаловать, {hero_name}!")
-print("Перед тобой развилка. Ты пошел в подземелье. Здесь темно, хоть вырви глаз. Пахнет омерзительно.")
+print("Перед тобой развилка. Ты пошел в подземелье. Здесь темно.")
 
 print()
 
@@ -52,36 +52,11 @@ while True:
     except ValueError:
         print("Такого пункта нет. Введи номер пункта из меню.")
         continue
-    if 0 <= menu_number <= menu_last:
+    if 0 <= menu_number:
         break
     print("Такого пункта нет. Введи номер пункта из меню.")
 
 print()
-
-outcome = "прерывание"
-try:
-    while running:
-        ...
-        case "0":
-            print("Вы поднимаетесь обратно к свету. Подземелье остаётся позади.")
-            outcome = "выход"
-            running = False
-        ...
-    if health <= 0:
-        outcome = "гибель"
-except KeyboardInterrupt:
-    print()
-    print("Игрок прервал сеанс.")
-finally:
-    print(frame)
-    if outcome == "гибель":
-        print(f"Ты не дошёл, {hero_name}. Действий совершено: {actions}.")
-    elif outcome == "выход":
-        print(f"Забег окончен, {hero_name}. Действий совершено: {actions}.")
-    else:
-        print(f"Сеанс прерван, {hero_name}. Действий совершено: {actions}.")
-    print(frame)
-
 
 # --- Выбор действия --------------------------------
 choice = input()
@@ -89,7 +64,6 @@ match choice:
     case "1":
         print("Вы осмотрелись. Комната пуста, только пыль на полу.")
     case "2":
-        stamina = stamina - 2
         print("Вы осторожно идёте вперёд. Пол скрипит под ногами.")
     case "6":
         strikes = 5
@@ -98,10 +72,6 @@ match choice:
         print()
 
         print(f"Наносите {strikes} ударов.")
-
-        for i in range(1, strikes + 1):
-        print(f"Удар {i}: {damage:.1f} урона")
-
     case _:
         print("Такого действия нет.")
 
