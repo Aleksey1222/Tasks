@@ -23,24 +23,12 @@ ability_bonus = 0
 # --- Описание функций ---
 
 def hero_hit(strike_n):
-    """Урон героя в удар номер strike_n.
-
-    Возвращает пару (hit, crit): урон и признак критического удара.
-    Читает глобальные правила damage и crit_damage, не меняет ничего.
-    """
     if strike_n % 3 == 0:
         return crit_damage, True
     return damage, False
 
 
 def fight(enemy, hero_health, bonus=0):
-    """Бой с enemy до гибели одного из двоих.
-
-    bonus — надбавка к базовому урону героя (по умолчанию 0, прибавляется до крита).
-    Печатает строки раундов боя. 
-    Возвращает кортеж (rounds, won, hero_health, loot): таблица раундов, 
-    признак победы героя (bool), здоровье после боя и количество добытого золота.
-    """
     enemy_hp = 45.0
     rounds = []
     round_n = 0
@@ -74,12 +62,6 @@ def fight(enemy, hero_health, bonus=0):
 
 
 def buy(price, gold, quantity=1):
-    """Покупает quantity штук товара ценой price за золото gold.
-
-    quantity по умолчанию равно 1. 
-    Возвращает кортеж (gold_left, ok): остаток золота и признак успешности покупки.
-    Ничего не печатает.
-    """
     cost = price * quantity
     if gold >= cost:
         return gold - cost, True
@@ -87,10 +69,6 @@ def buy(price, gold, quantity=1):
 
 
 def print_leaderboard(log):
-    """Печатает топ-3 раундов по урону героя и рекорд врага.
-
-    Возвращает None: контракт функции — печать, а не данные.
-    """
     if not log:
         print("You haven't fought yet.")
         return
@@ -105,10 +83,6 @@ def print_leaderboard(log):
 
 
 def print_run_summary(log):
-    """Печатает итог забега: суммарный и средний урон героя.
-
-    Возвращает None. Безопасна на пустом журнале.
-    """
     total = sum(r[1] for r in log)
     rounds = len(log)
     if rounds > 0:
