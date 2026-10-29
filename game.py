@@ -9,17 +9,6 @@ import random
 DUNGEON_TITLE = "DUNGEON: THE SILENT WELL"
 FRAME = "==============================="
 
-
-prices = {"potion": 10, "torch_oil": 15, "war_elixir": 40}
-
-
-enemy_stats = {
-    "skeleton": {"hp": 45, "damage": 6, "loot": 25},
-    "ghoul": {"hp": 30, "damage": 4, "loot": 15},
-    "spider": {"hp": 20, "damage": 3, "loot": 10},
-    "bat": {"hp": 12, "damage": 2, "loot": 5},
-}
-
 # Состояние и правила игры
 damage = 20.5
 crit_damage = 41.0
@@ -29,33 +18,38 @@ log = []
 # Переменные состояния забега
 gold_total = 0
 ability_bonus = 0
-inventory = {} 
 
 
 # --- Описание функций ---
 
-def hero_hit(strike_n, bonus=0):
-    base_with_bonus = damage + bonus
+def hero_hit(strike_n):
+    """Урон героя в удар номер strike_n.
+
+    Возвращает пару (hit, crit): урон и признак критического удара.
+    Читает глобальные правила damage и crit_damage, не меняет ничего.
+    """
     if strike_n % 3 == 0:
-        return base_with_bonus * 2.0, True
-    return base_with_bonus, False
+        return crit_damage, True
+    return damage, False
 
 
 def fight(enemy, hero_health, bonus=0):
     """Бой с enemy до гибели одного из двоих.
-    Карточка врага берётся из enemy_stats по имени: нужны ключи
-    hp, damage, loot. Печатает строки раундов.
-    Возвращает (rounds, won, hero_health, loot).
+
+    bonus — надбавка к базовому урону героя (по умолчанию 0, прибавляется до крита).
+    Печатает строки раундов боя. 
+    Возвращает кортеж (rounds, won, hero_health, loot): таблица раундов, 
+    признак победы героя (bool), здоровье после боя и количество добытого золота.
     """
-    stats = enemy_stats[enemy]
-    enemy_hp = float(stats["hp"])
+    enemy_hp = 45.0
     rounds = []
     round_n = 0
     print(f"You descend the stairs. A {enemy} emerges from the darkness!")
 
     while enemy_hp > 0 and hero_health > 0:
         round_n += 1
-        hit, crit = hero_hit(round_n, bonus=bonus)
+        hit, crit = hero_hit(round_n)
+        hit = hit + bonus  # Применение бонуса эликсира до/после крита зафиксировано в docstring
         enemy_hp -= hit
 
         line = f"Round {round_n}: hero deals {hit:.1f}."
@@ -66,7 +60,7 @@ def fight(enemy, hero_health, bonus=0):
             line += " Enemy falls."
             rounds.append([round_n, hit, 0])
         else:
-            blow = stats["damage"]  
+            blow = random.randint(2, 6)
             hero_health -= blow
             line += f" {enemy.capitalize()} health: {enemy_hp:.1f}. {enemy.capitalize()} hits for {blow}."
             rounds.append([round_n, hit, blow])
@@ -74,12 +68,18 @@ def fight(enemy, hero_health, bonus=0):
         print(line)
 
     won = enemy_hp <= 0
-    loot = stats["loot"] if won else 0  
+    loot = 10 + 5 * round_n if won else 0
 
     return rounds, won, hero_health, loot
 
 
 def buy(price, gold, quantity=1):
+    """Покупает quantity штук товара ценой price за золото gold.
+
+    quantity по умолчанию равно 1. 
+    Возвращает кортеж (gold_left, ok): остаток золота и признак успешности покупки.
+    Ничего не печатает.
+    """
     cost = price * quantity
     if gold >= cost:
         return gold - cost, True
@@ -87,6 +87,10 @@ def buy(price, gold, quantity=1):
 
 
 def print_leaderboard(log):
+    """Печатает топ-3 раундов по урону героя и рекорд врага.
+
+    Возвращает None: контракт функции — печать, а не данные.
+    """
     if not log:
         print("You haven't fought yet.")
         return
@@ -101,6 +105,10 @@ def print_leaderboard(log):
 
 
 def print_run_summary(log):
+    """Печатает итог забега: суммарный и средний урон героя.
+
+    Возвращает None. Безопасна на пустом журнале.
+    """
     total = sum(r[1] for r in log)
     rounds = len(log)
     if rounds > 0:
@@ -158,13 +166,11 @@ try:
     while running and health > 0:
         print("What do you do?")
         print("1 - look around\n2 - go forward\n3 - rest\n4 - listen\n5 - light a torch")
-        print("6 - train\n7 - descend deeper\n8 - leaderboard\n9 - shop")
-        print("10 - backpack\n11 - drink potion\n0 - exit the dungeon")  
+        print("6 - train\n7 - descend deeper\n8 - leaderboard\n9 - shop\n0 - exit the dungeon")
 
         choice = input()
 
-        
-        if choice in ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"]:
+        if choice in ["1", "2", "3", "4", "5", "6", "7", "8", "9"]:
             actions_count += 1
 
         match choice:
@@ -184,7 +190,7 @@ try:
                 crit_count = 0
                 total_damage = 0
                 for i in range(1, strikes + 1):
-                    hit_damage, crit = hero_hit(i, bonus=ability_bonus)
+                    hit_damage, crit = hero_hit(i)
                     if crit:
                         crit_count += 1
                         print(f"Удар {i}: {hit_damage:.1f} — критический!")
@@ -208,50 +214,39 @@ try:
                 print_leaderboard(log)
             case "9":
                 print("Shop:")
-                for name, price in prices.items():
-                    print(f"{name}: {price} gold")  
+                print("1 - potion (+10 health): 10 gold")
+                print("2 - torch oil (+5 stamina): 15 gold")
+                print("3 - war elixir (+2 damage for the run): 40 gold")
+                print("Item number (0 — not buying):")
+                item = input()
+                prices = (10, 15, 40)
+                names = ("potion", "torch oil", "war elixir")
                 
-                print("Item name (empty line — not buying):")
-                name = input()
-                if name != "":
-                    if name in prices: 
-                        price = prices[name]
-                        print("Quantity (Enter for one):")
-                        qty_line = input()
-                        
-                        if qty_line == "":
-                            qty = 1
-                            gold_total, ok = buy(price, gold_total)
-                        else:
-                            qty = int(qty_line)
-                            gold_total, ok = buy(price, gold_total, quantity=qty)
-                            
-                        if ok:
-                            inventory[name] = inventory.get(name, 0) + qty
-                            if name == "war_elixir":
-                                ability_bonus += 2 * qty
-                                
-                            print(f"Bought {qty} {name} for {price * qty} gold. Gold left: {gold_total}.")
-                        else:
-                            print(f"Not enough gold: need {price * qty}, have {gold_total}.")
+                if item in ("1", "2", "3"):
+                    price = prices[int(item) - 1]
+                    name = names[int(item) - 1]
+                    print("Quantity (Enter for one):")
+                    qty_line = input()
+                    
+                    if qty_line == "":
+                        qty = 1
+                        gold_total, ok = buy(price, gold_total)
                     else:
-                        print("No such item in the shop.")
-            case "10":
-                if not inventory:
-                    print("Backpack is empty.")
-                else:
-                    print("Backpack:")
-                    for name, qty in inventory.items():
-                        print(f"{name}: {qty} pcs")
-            case "11":
-                if inventory.get("potion", 0) == 0:
-                    print("No potions in the backpack.")
-                else:
-                    health = min(health + 10, max_health)
-                    inventory["potion"] -= 1
-                    if inventory["potion"] == 0:
-                        del inventory["potion"] 
-                    print(f"You drink a potion. Health: {health}. Potions left: {inventory.get('potion', 0)}.")
+                        qty = int(qty_line)
+                        gold_total, ok = buy(price, gold_total, quantity=qty)
+                        
+                    if ok:
+                        if item == "1":
+                            health = min(health + 10 * qty, max_health)
+                        elif item == "2":
+                            stamina = min(stamina + 5 * qty, max_stamina)
+                        else:
+                            ability_bonus += 2 * qty
+                        print(f"Bought {qty} {name} for {price * qty} gold. Gold left: {gold_total}.")
+                    else:
+                        print(f"Not enough gold: need {price * qty}, have {gold_total}.")
+                elif item != "0":
+                    print("No such item in the shop.")
             case "0":
                 running = False
             case _:
@@ -266,13 +261,6 @@ try:
         print("You climb back toward the light. The dungeon stays behind.")
 
 finally:
-    if inventory:
-        print("Left behind in the backpack:")
-        for name, qty in inventory.items():
-            print(f"{name}: {qty} pcs")
-    else:
-        print("Left behind in the backpack: nothing.")
-        
     print(FRAME)
     print(f"Run over, {hero_name}. Actions: {actions_count}.")
     print_run_summary(log)
