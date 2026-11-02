@@ -18,7 +18,7 @@ enemy_stats = {
     "bat": {"hp": 12, "damage": 2, "loot": 5},
 }
 
-
+# Сетка карты подземелья (5x5)
 MAP = [
     ["#", "#", "#", "#", "#"],
     ["#", ".", ".", "#", "#"],
@@ -27,23 +27,23 @@ MAP = [
     ["#", "#", "S", ".", "#"],
 ]
 
-
+# Направления движения
 DIRECTIONS = {"north": (-1, 0), "south": (1, 0), "west": (0, -1), "east": (0, 1)}
 
 # Уникальный лут в комнатах
 LOOT = {(1, 1): "old coin", (2, 3): "dusty potion", (3, 3): "guard's gem"}
 
-
+# Состояние и правила игры
 damage = 20.5
-crit_damage = 41.0
 enemies = ["skeleton", "skeleton", "skeleton", "skeleton"]
 log = []
 
-
+# Переменные состояния забега
 gold_total = 0
 ability_bonus = 0
 inventory = {}
 
+# Состояние карты и находок
 hero_r, hero_c = 4, 2
 visited = {(4, 2)}
 found_loot = set()
@@ -52,7 +52,7 @@ found_loot = set()
 num_to_verb = {
     "1": "look", "2": "go", "3": "rest", "4": "listen",
     "5": "torch", "6": "train", "7": "descend", "8": "leaders",
-    "9": "shop", "10": "backpack", "11": "drink", 
+    "9": "shop", "10": "backpack", "11": "drink",
     "12": "map", "13": "scout", "0": "exit"
 }
 
@@ -112,7 +112,8 @@ def fight(enemy, hero_health, bonus=0):
         else:
             blow = stats["damage"]
             hero_health -= blow
-            line += f" {enemy.capitalize()} health: {enemy_hp:.1f}. {enemy.capitalize()} hits for {blow}."
+            line += (f" {enemy.capitalize()} health: {enemy_hp:.1f}. "
+                     f"{enemy.capitalize()} hits for {blow}.")
             rounds.append([round_n, hit, blow])
 
         print(line)
@@ -154,6 +155,9 @@ def print_run_summary(log_data):
 
 
 def scout(r, c, seen):
+    # Проверка границ — защита от IndexError
+    if r < 0 or r >= len(MAP) or c < 0 or c >= len(MAP[r]):
+        return 0
     if (r, c) in seen or MAP[r][c] == "#":
         return 0
     seen.add((r, c))
@@ -161,6 +165,81 @@ def scout(r, c, seen):
     for dr, dc in DIRECTIONS.values():
         total += scout(r + dr, c + dc, seen)
     return total
+
+
+def draw_map():
+    print("Map:")
+    for i in range(len(MAP)):
+        cells = []
+        for j in range(len(MAP[i])):
+            if (i, j) == (hero_r, hero_c):
+                cells.append("@")
+            else:
+                cells.append(MAP[i][j])
+        print(" ".join(cells))
+
+
+def safe_int(prompt):
+    while True:
+        raw = input(prompt).strip()
+        try:
+            return int(raw)
+        except ValueError:
+            print("Please enter an integer.")
+
+
+def handle_buy(words, gold_total, inventory, ability_bonus):
+    """Покупка: buy <item> [count]. Возвращает (gold, inventory, ability_bonus)."""
+    if len(words) < 2:
+        print("Usage: buy <item> [count]")
+        return gold_total, inventory, ability_bonus
+
+    item = words[1]
+    if item not in prices:
+        print(f"Unknown item: {item}. Try one of: {', '.join(prices)}.")
+        return gold_total, inventory, ability_bonus
+
+    qty = 1
+    if len(words) > 2:
+        try:
+            qty = int(words[2])
+        except ValueError:
+            print("Count must be an integer.")
+            return gold_total, inventory, ability_bonus
+        if qty <= 0:
+            print("Count must be positive.")
+            return gold_total, inventory, ability_bonus
+
+    gold_total, ok = buy(prices[item], gold_total, qty)
+    if not ok:
+        print("Not enough gold.")
+        return gold_total, inventory, ability_bonus
+
+    inventory[item] = inventory.get(item, 0) + qty
+    print(f"Bought {item} x{qty} for {prices[item] * qty} gold.")
+
+    # Правило эликсира: qty увеличивает урон на 2 * qty (применяется сразу при покупке)
+    if item == "war_elixir":
+        ability_bonus += 2 * qty
+        print(f"War elixir raises your damage bonus to +{ability_bonus}.")
+
+    return gold_total, inventory, ability_bonus
+
+
+def handle_drink(inventory, health, max_health, ability_bonus):
+    """Питьё зелья: potion лечит, war_elixir — бонус к урону (если ещё не применён)."""
+    if inventory.get("potion", 0) <= 0:
+        print("You have no potions.")
+        return inventory, health, ability_bonus
+
+    inventory["potion"] -= 1
+    if inventory["potion"] == 0:
+        del inventory["potion"]
+
+    heal = 15
+    health = min(max_health, health + heal)
+    print(f"You drink a potion and restore {heal} HP. HP: {health}/{max_health}.")
+    return inventory, health, ability_bonus
 
 
 # --- Настройка персонажа ---
@@ -175,15 +254,17 @@ print("You enter the dungeon. Dark and damp.")
 
 print("Hero setup.")
 print("Health, strength, agility, endurance — one number per line:")
-health = int(input())
-strength = int(input())
-agility = int(input())
-endurance = int(input())
+health = safe_int("")
+strength = safe_int("")
+agility = safe_int("")
+endurance = safe_int("")
 
+# Первичный расчет характеристик
 damage = strength * 2 + agility * 1.3
 crit_damage = damage * 2.0
 stamina = endurance * 3.5
 
+# Фиксация потолков характеристик для магазина
 max_health = health
 max_stamina = stamina
 
@@ -206,8 +287,8 @@ running = True
 
 # --- Главный цикл игры ---
 
-
-while running and health > 0:
+try:
+    while running and health > 0:
         print("\n".join(MENU))
         print()
 
@@ -219,6 +300,8 @@ while running and health > 0:
             cmd = line.strip().lower()
 
         words = cmd.split()
+
+        # Получаем строго строковое имя действия
         if cmd in num_to_verb:
             verb = num_to_verb[cmd]
         else:
@@ -229,24 +312,30 @@ while running and health > 0:
                 print("You see stone walls and cobwebs.")
                 actions_count += 1
             case "go":
+                # Проверяем, есть ли слово направления (например, "go north")
                 if len(words) > 1 and words[1] in DIRECTIONS:
                     direction_word = words[1]
                     dr, dc = DIRECTIONS[direction_word]
                     nr, nc = hero_r + dr, hero_c + dc
-                    
-                    if 0 <= nr < len(MAP) and 0 <= nc < len(MAP[nr]) and MAP[nr][nc] != "#":
+
+                    if (0 <= nr < len(MAP)
+                            and 0 <= nc < len(MAP[nr])
+                            and MAP[nr][nc] != "#"):
                         hero_r, hero_c = nr, nc
                         visited.add((hero_r, hero_c))
+
+                        # Подбор лута проверяется СРАЗУ после смены клетки
                         if (hero_r, hero_c) in LOOT:
                             item = LOOT[(hero_r, hero_c)]
                             if item not in found_loot:
                                 found_loot.add(item)
                                 print(f"You found {item}! Unique loot: {len(found_loot)}.")
-                                
+
                         print(f"You step {direction_word}. Room ({hero_r}, {hero_c}).")
                     else:
                         print(f"Cannot go {direction_word}: wall or edge.")
                 else:
+                    # Старый коридорный шаг без направления
                     print("You step forward cautiously.")
                 actions_count += 1
             case "rest":
@@ -260,14 +349,14 @@ while running and health > 0:
                 actions_count += 1
             case "train":
                 print("How many strikes?")
-                strikes = int(input())
+                strikes = safe_int("")
                 total_damage = 0
                 for i in range(1, strikes + 1):
                     hit_damage, crit = hero_hit(i, bonus=ability_bonus)
                     if crit:
-                        print(f"Удар {i}: {hit_damage:.1f} — критический!")
+                        print(f"Strike {i}: {hit_damage:.1f} — critical!")
                     else:
-                        print(f"Удар {i}: {hit_damage:.1f}")
+                        print(f"Strike {i}: {hit_damage:.1f}")
                     total_damage += hit_damage
                 actions_count += 1
             case "descend":
@@ -281,8 +370,11 @@ while running and health > 0:
                     if won:
                         gold_total += loot
                         enemies.remove(enemy)
-                        print(f"{enemy.capitalize()} defeated! {len(enemies)} enemies left in the dungeon. Loot: {loot} gold.")
+                        print(f"{enemy.capitalize()} defeated! {len(enemies)} enemies "
+                              f"left in the dungeon. Loot: {loot} gold.")
                         print(f"Battle: {len(rounds)} rounds.")
+                    else:
+                        print("You have been defeated...")
                 actions_count += 1
             case "leaders":
                 print_leaderboard(log)
@@ -291,6 +383,7 @@ while running and health > 0:
                 print("Shop:")
                 for name, price in prices.items():
                     print(f"{name}: {price} gold")
+                print(f"Your gold: {gold_total}")
                 actions_count += 1
             case "backpack":
                 if not inventory:
@@ -301,9 +394,38 @@ while running and health > 0:
                         print(f"{name}: {qty} pcs")
                 actions_count += 1
             case "drink":
-                print("You drink a potion.")
+                inventory, health, ability_bonus = handle_drink(
+                    inventory, health, max_health, ability_bonus
+                )
                 actions_count += 1
             case "map":
-                print("Map:")
-                for i in range(len(MAP)):
-                    cells = []
+                draw_map()
+                actions_count += 1
+            case "scout":
+                seen = set()
+                reachable = scout(hero_r, hero_c, seen)
+                print(f"Reachable rooms from ({hero_r}, {hero_c}): {reachable}.")
+                actions_count += 1
+            case "buy":
+                gold_total, inventory, ability_bonus = handle_buy(
+                    words, gold_total, inventory, ability_bonus
+                )
+                actions_count += 1
+            case "exit":
+                print("You leave the dungeon.")
+                running = False
+            case _:
+                print(f"Unknown command: {cmd}")
+                actions_count += 1
+except (KeyboardInterrupt, EOFError):
+    print("\nInterrupted.")
+
+# --- Финал ---
+print(FRAME)
+if health <= 0:
+    print(f"{hero_name} has fallen in the dungeon.")
+else:
+    print(f"{hero_name} leaves the dungeon with {gold_total} gold.")
+print(f"Gold: {gold_total}. Unique loot: {len(found_loot)}. Actions: {actions_count}.")
+print_run_summary(log)
+print(FRAME)
